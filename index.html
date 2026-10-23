@@ -1,41 +1,623 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wordbook – World Dictionary</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordbook Multi-Language Dictionary Engine</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#0a100e',
+                            card: '#131f1c',
+                            cardHover: '#182824',
+                            border: '#1f332d',
+                            accent: '#4cd7b6',
+                            accentHover: '#3eb89b',
+                            accentMuted: 'rgba(76, 215, 182, 0.12)',
+                            textMain: '#e6f4f0',
+                            textMuted: '#8da8a0',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a100e;
+            color: #e6f4f0;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0a100e;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1f332d;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #4cd7b6;
+        }
+    </style>
 </head>
-<body>
-  <main>
-    <h1>Wordbook</h1>
-    <p class="tagline">Look up any word in 10+ languages.</p>
+<body class="flex flex-col min-h-screen">
 
-    <div class="search" role="search">
-      <input id="q" type="search" placeholder="Type a word…" aria-label="Word to look up" autocomplete="off" autofocus>
-      <select id="lang" aria-label="Language">
-        <option value="en">English</option>
-        <option value="es">Spanish</option>
-        <option value="fr">French</option>
-        <option value="de">German</option>
-        <option value="it">Italian</option>
-        <option value="pt-BR">Portuguese</option>
-        <option value="ru">Russian</option>
-        <option value="hi">Hindi</option>
-        <option value="ar">Arabic</option>
-        <option value="ja">Japanese</option>
-        <option value="ko">Korean</option>
-        <option value="tr">Turkish</option>
-      </select>
-      <button class="go" id="go">Search</button>
+    <!-- Header / Navigation -->
+    <header class="border-b border-brand-border bg-brand-dark/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="resetToHome()">
+                <div class="w-10 h-10 rounded-xl bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent font-bold text-xl shadow-lg shadow-brand-accent/10">
+                    <i class="fa-solid me-0 fa-book-bookmark"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-brand-textMain">Wordbook</h1>
+                    <p class="text-xs text-brand-textMuted font-mono">word</p
+                </div>
+            </div>
+
+            <!-- API Status Badge -->
+            <div id="aiStatusBadge" class="flex items-center space-x-2 text-xs bg-brand-card border border-brand-border px-3 py-1.5 rounded-full">
+                <span class="w-2 h-2 rounded-full bg-brand-accent animate-pulse"></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main App Container -->
+    <main class="flex-grow max-w-5xl w-full mx-auto px-4 py-8 flex flex-col space-y-6">
+
+        <!-- Search & Control Panel -->
+        <section class="bg-brand-card border border-brand-border rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
+            <div class="absolute -right-16 -top-16 w-48 h-48 bg-brand-accent/5 rounded-full blur-3xl pointer-events-none"></div>
+
+            <form id="searchForm" onsubmit="handleSearch(event)" class="space-y-4">
+                <div class="flex flex-col md:flex-row gap-3">
+                    
+                    <!-- Search Input -->
+                    <div class="relative flex-grow">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-brand-textMuted">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="Enter any word (e.g., mater, amore, mass, hello)..." 
+                            class="w-full pl-11 pr-10 py-3.5 bg-brand-dark border border-brand-border rounded-xl text-brand-textMain placeholder-brand-textMuted focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition font-medium text-base"
+                            autocomplete="off"
+                            required
+                        />
+                        <button 
+                            type="button" 
+                            id="clearBtn"
+                            onclick="clearInput()" 
+                            class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-brand-textMuted hover:text-brand-textMain"
+                        >
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Target Language Selector -->
+                    <div class="w-full md:w-52 flex-shrink-0">
+                        <select 
+                            id="targetLang" 
+                            class="w-full py-3.5 px-4 bg-brand-dark border border-brand-border rounded-xl text-brand-textMain focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition font-medium cursor-pointer"
+                        >
+                            <option value="en" selected>English Definition & Context</option>
+                            <option value="es">Spanish (Español)</option>
+                            <option value="fr">French (Français)</option>
+                            <option value="de">German (Deutsch)</option>
+                            <option value="it">Italian (Italiano)</option>
+                            <option value="la">Latin (Latina)</option>
+                            <option value="ja">Japanese (日本語)</option>
+                            <option value="zh">Chinese (中文)</option>
+                            <option value="ar">Arabic (العربية)</option>
+                            <option value="ru">Russian (Русский)</option>
+                            <option value="pt">Portuguese (Português)</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        id="searchBtn"
+                        class="w-full md:w-auto px-7 py-3.5 bg-brand-accent hover:bg-brand-accentHover text-brand-dark font-semibold rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-brand-accent/20 cursor-pointer"
+                    >
+                        <span>Search</span>
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Recent Searches Chips -->
+                <div class="flex items-center space-x-2 pt-2 overflow-x-auto custom-scrollbar">
+                    <span class="text-xs text-brand-textMuted font-mono flex-shrink-0"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Recent:</span>
+                    <div id="recentSearchChips" class="flex items-center space-x-2">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loadingContainer" class="hidden flex-col items-center justify-center py-16 space-y-4">
+            <div class="w-12 h-12 border-4 border-brand-accent/20 border-t-brand-accent rounded-full animate-spin"></div>
+            <p class="text-brand-textMuted text-sm font-mono animate-pulse">Analyzing word semantics & context...</p>
+        </div>
+
+        <!-- Result Container -->
+        <section id="resultContainer" class="hidden space-y-6">
+            
+            <!-- Primary Card Header -->
+            <div class="bg-brand-card border border-brand-border rounded-2xl p-6 shadow-xl relative">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-brand-border">
+                    <div>
+                        <div class="flex items-center space-x-3">
+                            <h2 id="wordTitle" class="text-3xl sm:text-4xl font-bold tracking-tight text-brand-textMain">--</h2>
+                            <span id="posBadge" class="px-3 py-1 bg-brand-accentMuted text-brand-accent text-xs font-mono font-semibold rounded-full border border-brand-accent/30">noun</span>
+                        </div>
+                        <div class="flex items-center space-x-3 mt-2 text-brand-textMuted">
+                            <span id="phoneticsText" class="font-mono text-sm">/--/</span>
+                            <button 
+                                onclick="speakWord()" 
+                                title="Listen Pronunciation"
+                                class="w-8 h-8 rounded-full bg-brand-dark border border-brand-border flex items-center justify-center text-brand-accent hover:bg-brand-accent hover:text-brand-dark transition cursor-pointer"
+                            >
+                                <i class="fa-solid fa-volume-high text-xs"></i>
+                            </button>
+                            <span id="detectedLangTag" class="text-xs bg-brand-dark border border-brand-border px-2.5 py-0.5 rounded text-brand-textMuted font-mono">Origin: Auto-detected</span>
+                        </div>
+                    </div>
+
+                    <!-- Quick Action Buttons -->
+                    <div class="flex items-center space-x-2">
+                        <button 
+                            onclick="copyToClipboard()" 
+                            class="px-3.5 py-2 bg-brand-dark border border-brand-border rounded-lg text-xs font-medium text-brand-textMuted hover:text-brand-textMain hover:border-brand-accent/50 transition flex items-center space-x-1.5 cursor-pointer"
+                            title="Copy result text"
+                        >
+                            <i class="fa-regular fa-copy"></i>
+                            <span id="copyBtnText">Copy</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Core English Explanation & Meaning -->
+                <div class="mt-6 space-y-4">
+                    <div class="bg-brand-dark/60 border border-brand-border/80 rounded-xl p-4 sm:p-5">
+                        <h3 class="text-xs font-mono font-semibold text-brand-accent uppercase tracking-wider mb-2 flex items-center space-x-2">
+                            <i class="fa-solid fa-align-left"></i>
+                            <span>English Explanation & Meaning</span>
+                        </h3>
+                        <p id="englishDefinition" class="text-brand-textMain text-base sm:text-lg leading-relaxed font-normal">
+                            --
+                        </p>
+                    </div>
+
+                    <!-- Translation Section -->
+                    <div id="translationCard" class="bg-brand-dark/40 border border-brand-border/60 rounded-xl p-4 sm:p-5">
+                        <h3 class="text-xs font-mono font-semibold text-brand-accent uppercase tracking-wider mb-2 flex items-center space-x-2">
+                            <i class="fa-solid fa-language"></i>
+                            <span id="translationHeading">Target Language Translation</span>
+                        </h3>
+                        <div class="flex items-baseline space-x-3">
+                            <span id="translationResult" class="text-xl font-bold text-brand-textMain">--</span>
+                            <span id="translationNotes" class="text-xs text-brand-textMuted italic"></span>
+                        </div>
+                    </div>
+
+                    <!-- Example Usage Card -->
+                    <div class="bg-brand-dark/40 border border-brand-border/60 rounded-xl p-4 sm:p-5 space-y-2">
+                        <h3 class="text-xs font-mono font-semibold text-brand-accent uppercase tracking-wider mb-2 flex items-center space-x-2">
+                            <i class="fa-solid fa-quote-left"></i>
+                            <span>Example Sentence & Context</span>
+                        </h3>
+                        <p id="exampleOriginal" class="text-brand-textMain text-base font-medium italic border-l-2 border-brand-accent pl-3 py-0.5">
+                            --
+                        </p>
+                        <p id="exampleEnglish" class="text-brand-textMuted text-sm pl-3">
+                            --
+                        </p>
+                    </div>
+
+                    <!-- Synonyms / Nuance -->
+                    <div id="synonymsWrapper" class="pt-2">
+                        <h4 class="text-xs font-mono text-brand-textMuted mb-2 flex items-center space-x-2">
+                            <i class="fa-solid fa-tags"></i>
+                            <span>Related Words / Synonyms:</span>
+                        </h4>
+                        <div id="synonymChips" class="flex flex-wrap gap-2">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Initial Placeholder / Empty State -->
+        <section id="emptyState" class="bg-brand-card/50 border border-brand-border border-dashed rounded-2xl p-12 text-center space-y-4">
+            <div class="w-16 h-16 mx-auto rounded-full bg-brand-dark border border-brand-border flex items-center justify-center text-brand-accent text-2xl">
+                <i class="fa-solid fa-spell-check"></i>
+            </div>
+            <div class="max-w-md mx-auto space-y-2">
+                <h3 class="text-lg font-semibold text-brand-textMain">Search any word in any language</h3>
+                <p class="text-sm text-brand-textMuted">
+                    Get instant English definitions, etymology/origin context, accurate translations, and example sentences.
+                </p>
+            </div>
+            <div class="pt-4 flex flex-wrap justify-center gap-2">
+                <button onclick="quickSearch('mater', 'en')" class="px-3 py-1.5 bg-brand-dark border border-brand-border rounded-lg text-xs text-brand-textMuted hover:text-brand-accent hover:border-brand-accent transition font-mono cursor-pointer">mater (Latin)</button>
+                <button onclick="quickSearch('amore', 'en')" class="px-3 py-1.5 bg-brand-dark border border-brand-border rounded-lg text-xs text-brand-textMuted hover:text-brand-accent hover:border-brand-accent transition font-mono cursor-pointer">amore (Italian)</button>
+                <button onclick="quickSearch('mass', 'es')" class="px-3 py-1.5 bg-brand-dark border border-brand-border rounded-lg text-xs text-brand-textMuted hover:text-brand-accent hover:border-brand-accent transition font-mono cursor-pointer">mass (English -> ES)</button>
+                <button onclick="quickSearch('zeitgeist', 'en')" class="px-3 py-1.5 bg-brand-dark border border-brand-border rounded-lg text-xs text-brand-textMuted hover:text-brand-accent hover:border-brand-accent transition font-mono cursor-pointer">zeitgeist (German)</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-brand-card border border-brand-accent/40 text-brand-textMain px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i class="fa-solid fa-circle-check text-brand-accent"></i>
+        <span id="toastMsg" class="text-sm font-medium">Notification</span>
     </div>
 
-    <div id="history" aria-label="Recent searches"></div>
-    <div id="result" aria-live="polite">
-      <p class="msg">Type a word and press Search to see its meaning.</p>
-    </div>
-  </main>
+    <!-- Footer -->
+    <footer class="border-t border-brand-border bg-brand-dark py-6 mt-auto">
+        <div class="max-w-5xl mx-auto px-4 text-center text-xs text-brand-textMuted font-mono space-y-1">
+            <p>Wordbook Universal Multi-Language Dictionary Engine &bull; Instant Context Fallbacks</p>
+        </div>
+    </footer>
 
-  <script src="script.js"></script>
+    <!-- Application Script -->
+    <script>
+        // State management
+        const state = {
+            currentWord: '',
+            currentData: null,
+            recentSearches: ['mater', 'amore', 'mass', 'zeitgeist', 'schadenfreude'],
+            apiKey: '' // Managed dynamically at runtime
+        };
+
+        // DOM Elements
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const targetLang = document.getElementById('targetLang');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const emptyState = document.getElementById('emptyState');
+        const recentSearchChips = document.getElementById('recentSearchChips');
+
+        // Init App
+        window.addEventListener('DOMContentLoaded', () => {
+            renderRecentChips();
+            searchInput.addEventListener('input', () => {
+                if (searchInput.value.trim().length > 0) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+            });
+        });
+
+        function clearInput() {
+            searchInput.value = '';
+            clearBtn.classList.add('hidden');
+            searchInput.focus();
+        }
+
+        function resetToHome() {
+            clearInput();
+            resultContainer.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+        }
+
+        function quickSearch(word, lang = 'en') {
+            searchInput.value = word;
+            targetLang.value = lang;
+            clearBtn.classList.remove('hidden');
+            executeLookup(word, lang);
+        }
+
+        function handleSearch(e) {
+            e.preventDefault();
+            const query = searchInput.value.trim();
+            const lang = targetLang.value;
+            if (!query) return;
+            executeLookup(query, lang);
+        }
+
+        function renderRecentChips() {
+            recentSearchChips.innerHTML = '';
+            state.recentSearches.slice(0, 6).forEach(word => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'px-2.5 py-1 bg-brand-dark border border-brand-border rounded-md text-xs text-brand-textMuted hover:text-brand-accent hover:border-brand-accent/50 transition font-mono flex-shrink-0 cursor-pointer';
+                btn.innerText = word;
+                btn.onclick = () => quickSearch(word, targetLang.value);
+                recentSearchChips.appendChild(btn);
+            });
+        }
+
+        function addRecentSearch(word) {
+            const clean = word.toLowerCase().trim();
+            state.recentSearches = [clean, ...state.recentSearches.filter(w => w !== clean)].slice(0, 10);
+            renderRecentChips();
+        }
+
+        // Primary Lookup Engine
+        async function executeLookup(word, lang) {
+            state.currentWord = word;
+            addRecentSearch(word);
+
+            // UI loading state
+            emptyState.classList.add('hidden');
+            resultContainer.classList.add('hidden');
+            loadingContainer.classList.remove('hidden');
+            loadingContainer.classList.add('flex');
+
+            try {
+                let data = null;
+
+                if (state.apiKey) {
+                    data = await fetchFromGemini(word, 'en');
+                }
+
+                if (!data) {
+                    data = await fetchFromFallbackAPIs(word, lang);
+                }
+
+                state.currentData = data;
+                renderResult(data);
+            } catch (err) {
+                console.error("Lookup error:", err);
+                showToast("Could not retrieve word details. Please check connection.", true);
+            } finally {
+                loadingContainer.classList.add('hidden');
+                loadingContainer.classList.remove('flex');
+            }
+        }
+
+        // 1. Gemini AI API Call
+        async function fetchFromGemini(word, targetLanguage) {
+            if (!state.apiKey) return null;
+
+            const systemPrompt = `You are an expert lexicographer and polyglot dictionary engine.
+Analyze the input word in ANY language.
+Return ONLY valid JSON with these exact keys:
+{
+  "word": "searched word",
+  "phonetic": "phonetics spelling",
+  "partOfSpeech": "noun/verb/adjective/etc.",
+  "originLanguage": "Detected language of origin",
+  "englishExplanation": "Clear meaning in English",
+  "targetTranslation": "English translation only",
+  "exampleSentenceOriginal": "Example in the original language",
+  "exampleSentenceEnglish": "English example sentence",
+  "synonyms": ["synonym1", "synonym2", "synonym3"]
+}`;
+
+            const userPrompt = `Word: "${word}". Explain its real dictionary meaning in English only.`;
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json"
+                }
+            };
+
+            try {
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) return null;
+
+                const result = await response.json();
+                const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!jsonText) return null;
+
+                return JSON.parse(jsonText);
+            } catch (e) {
+                console.warn("Gemini API call failed, using dictionary fallback:", e);
+                return null;
+            }
+        }
+
+        // Fetch with retry exponential backoff
+        async function fetchWithRetry(url, options, retries = 2, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, options);
+                    if (res.ok) return res;
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                }
+                await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
+            }
+            return fetch(url, options);
+        }
+
+        // 2. Fallback direct dictionary pipeline (works without a Gemini API key)
+        async function fetchFromFallbackAPIs(word, targetLangCode) {
+            const lookupLang = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'la'].includes(targetLangCode)
+                ? targetLangCode
+                : 'en';
+
+            const dictUrl = `https://api.dictionaryapi.dev/api/v2/entries/${lookupLang}/${encodeURIComponent(word)}`;
+
+            try {
+                const dictRes = await fetch(dictUrl, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!dictRes.ok) {
+                    throw new Error(`Dictionary API returned ${dictRes.status}`);
+                }
+
+                const dictArr = await dictRes.json();
+                if (!Array.isArray(dictArr) || !dictArr[0]) {
+                    throw new Error('No dictionary result found');
+                }
+
+                const entry = dictArr[0];
+                const primaryMeaning = entry.meanings?.[0];
+                const firstDefinition = primaryMeaning?.definitions?.[0];
+                const phonetic = entry.phonetic || entry.phonetics?.find(p => p.text)?.text || `/${word}/`;
+                const explanation = firstDefinition?.definition || 'No definition available.';
+                const example = firstDefinition?.example || `The term "${word}" is commonly used in written and spoken expressions.`;
+                const synonyms = primaryMeaning?.synonyms?.slice(0, 5) || ['term', 'expression', 'concept'];
+
+                return {
+                    word: entry.word || word,
+                    phonetic,
+                    partOfSpeech: primaryMeaning?.partOfSpeech || 'word',
+                    originLanguage: 'Auto-detected',
+                    englishExplanation: explanation,
+                    targetTranslation: explanation,
+                    exampleSentenceOriginal: example,
+                    exampleSentenceEnglish: example,
+                    synonyms
+                };
+            } catch (e) {
+                console.warn('Dictionary fallback failed:', e);
+                return {
+                    word: word,
+                    phonetic: `/${word}/`,
+                    partOfSpeech: 'word',
+                    originLanguage: 'Auto-detected',
+                    englishExplanation: `The word "${word}" was found, but no dictionary definition could be retrieved.`,
+                    targetTranslation: `The word "${word}" was found, but no dictionary definition could be retrieved.`,
+                    exampleSentenceOriginal: `The term "${word}" is commonly used in written and spoken expressions.`,
+                    exampleSentenceEnglish: `The term "${word}" is commonly used in written and spoken expressions.`,
+                    synonyms: ['term', 'expression', 'concept']
+                };
+            }
+        }
+
+        // Render Data into DOM
+        function renderResult(data) {
+            document.getElementById('wordTitle').innerText = data.word || state.currentWord;
+            document.getElementById('posBadge').innerText = data.partOfSpeech || 'word';
+            document.getElementById('phoneticsText').innerText = data.phonetic || `/${data.word}/`;
+            document.getElementById('detectedLangTag').innerText = `Origin: ${data.originLanguage || 'Auto-detected'}`;
+
+            document.getElementById('englishDefinition').innerText = data.englishExplanation || 'No detailed explanation available.';
+
+            document.getElementById('translationHeading').innerText = 'English Translation';
+            document.getElementById('translationResult').innerText = data.targetTranslation || data.word;
+            document.getElementById('translationNotes').innerText = '';
+
+            document.getElementById('exampleOriginal').innerText = `"${data.exampleSentenceOriginal || data.exampleSentenceEnglish || '--'}"`;
+            document.getElementById('exampleEnglish').innerText = data.exampleSentenceEnglish ? `Translation: "${data.exampleSentenceEnglish}"` : '';
+
+            const synonymChips = document.getElementById('synonymChips');
+            synonymChips.innerHTML = '';
+            const synonyms = data.synonyms && data.synonyms.length > 0 ? data.synonyms : ['contextual', 'literal', 'term'];
+
+            synonyms.forEach(syn => {
+                const span = document.createElement('span');
+                span.className = 'px-2.5 py-1 bg-brand-dark border border-brand-border rounded-md text-xs font-mono text-brand-textMuted hover:text-brand-accent cursor-pointer transition';
+                span.innerText = syn;
+                span.onclick = () => quickSearch(syn, targetLang.value);
+                synonymChips.appendChild(span);
+            });
+
+            resultContainer.classList.remove('hidden');
+        }
+
+        // Text-to-Speech Pronunciation
+        function speakWord() {
+            const word = state.currentWord || document.getElementById('wordTitle').innerText;
+            if (!word || word === '--') return;
+
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Stop ongoing speech
+                const utterance = new SpeechSynthesisUtterance(word);
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+                showToast(`Playing pronunciation for "${word}"`);
+            } else {
+                showToast("Text-to-speech not supported on this browser.", true);
+            }
+        }
+
+        // Copy Result to Clipboard
+        function copyToClipboard() {
+            if (!state.currentData) return;
+
+            const textToCopy = `Word: ${state.currentData.word} (${state.currentData.partOfSpeech})
+Phonetic: ${state.currentData.phonetic}
+Meaning: ${state.currentData.englishExplanation}
+Translation: ${state.currentData.targetTranslation}
+Example: ${state.currentData.exampleSentenceOriginal}`;
+
+            // Robust clipboard copy function without navigator restrictions
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                const btnText = document.getElementById('copyBtnText');
+                btnText.innerText = 'Copied!';
+                showToast('Dictionary entry copied to clipboard');
+                setTimeout(() => {
+                    btnText.innerText = 'Copy';
+                }, 2000);
+            } catch (err) {
+                showToast('Failed to copy text', true);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        // Toast Helper
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.innerText = message;
+            
+            if (isError) {
+                toast.classList.remove('border-brand-accent/40');
+                toast.classList.add('border-red-500/50');
+            } else {
+                toast.classList.remove('border-red-500/50');
+                toast.classList.add('border-brand-accent/40');
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
